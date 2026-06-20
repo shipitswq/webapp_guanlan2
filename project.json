@@ -1,7 +1,7 @@
 ﻿{
     "name":  "guanlan",
     "version":  "0.1.0",
-    "phase":  "task-manager",
+    "phase":  "developer",
     "artifacts":  {
                       "prd":  "work/prd.md",
                       "user-stories":  "work/user-stories.md",
@@ -16,5 +16,5 @@
 
               },
     "created_at":  "2026-06-20T12:08:08Z",
-    "updated_at":  "2026-06-20T12:10:06Z"
+    "updated_at":  "2026-06-20T12:10:59Z"
 }
