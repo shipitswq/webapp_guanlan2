@@ -9,7 +9,7 @@ set -euo pipefail
 #   ./deploy.sh --port 8080             指定端口（仅生产模式）
 #
 # 在 Ubuntu 上首次运行前:
-#   sudo apt install -y python3 python3-venv python3-pip nodejs npm
+#   sudo apt install -y python3 python3-venv python3-pip nodejs npm build-essential
 # =========================================================
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,18 +37,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ── 检测 Python ────────────────────────────────────────
-# Ubuntu 上只有 python3，没有 python；git-bash 上两者都可能
+# ── 检测系统 Python ────────────────────────────────────
 detect_python() {
     if command -v python3 &>/dev/null; then
         PYTHON=python3
-        PIP=pip3
     elif command -v python &>/dev/null; then
         PYTHON=python
-        PIP=pip
     else
         log_error "未找到 python / python3，请先安装 Python 3.12+"
-        log_error "  Ubuntu: sudo apt install -y python3 python3-venv python3-pip"
+        echo "  Ubuntu: sudo apt install -y python3 python3-venv python3-pip"
         exit 1
     fi
 
@@ -64,9 +61,8 @@ detect_python() {
 
     # 检查 venv 模块
     if ! "$PYTHON" -c "import venv" 2>/dev/null; then
-        log_error "Python venv 模块不可用"
-        log_error "  Ubuntu: sudo apt install -y python3-venv"
-        log_error "   或: $PYTHON -m pip install virtualenv"
+        log_error "Python venv 模块不可用，请安装 python3-venv"
+        echo "  Ubuntu: sudo apt install -y python3-venv"
         exit 1
     fi
 }
@@ -114,25 +110,23 @@ if [ ! -d ".venv" ]; then
     log_ok "虚拟环境已创建"
 fi
 
-# 确定 venv 中的 Python 路径 (Ubuntu: bin/, git-bash: Scripts/)
-if [ -f ".venv/bin/python3" ]; then
-    VENV_PY="$BACKEND/.venv/bin/python3"
-    VENV_PIP="$BACKEND/.venv/bin/pip3"
-    VENV_UVI="$BACKEND/.venv/bin/uvicorn"
-elif [ -f ".venv/bin/python" ]; then
-    VENV_PY="$BACKEND/.venv/bin/python"
-    VENV_PIP="$BACKEND/.venv/bin/pip"
-    VENV_UVI="$BACKEND/.venv/bin/uvicorn"
-elif [ -f ".venv/Scripts/python" ]; then
-    VENV_PY="$BACKEND/.venv/Scripts/python"
-    VENV_PIP="$BACKEND/.venv/Scripts/pip"
-    VENV_UVI="$BACKEND/.venv/Scripts/uvicorn"
-else
+# 确定 venv 中的 Python 路径
+# 只检测 python 可执行文件，pip/uvicorn 用 python -m 调用即可
+VENV_PY=""
+for candidate in ".venv/bin/python3" ".venv/bin/python" ".venv/Scripts/python"; do
+    if [ -f "$candidate" ]; then
+        VENV_PY="$BACKEND/$candidate"
+        break
+    fi
+done
+
+if [ -z "$VENV_PY" ]; then
     log_error "无法找到虚拟环境中的 Python"
     exit 1
 fi
 
-"$VENV_PIP" install -q -r requirements.txt || log_warn "pip 安装可能有警告"
+# 用 python -m pip 安装，不依赖 pip/pip3 二进制名
+"$VENV_PY" -m pip install -q -r requirements.txt || log_warn "pip 安装可能有警告"
 
 if [ ! -f ".env" ]; then
     cp ".env.example" ".env"
@@ -157,6 +151,7 @@ if [ "$DEV_MODE" = false ]; then
     log_step "初始化数据库（种子数据）"
     pushd "$BACKEND" >/dev/null
     "$VENV_PY" seed.py
+    log_ok "数据库初始化完成"
     popd >/dev/null
 
     log_step "启动服务 → http://localhost:$PORT"
@@ -166,7 +161,7 @@ if [ "$DEV_MODE" = false ]; then
 
     export FRONTEND_DIST="$DIST"
     pushd "$BACKEND" >/dev/null
-    exec "$VENV_UVI" app.main:app --host 0.0.0.0 --port "$PORT" --log-level info
+    exec "$VENV_PY" -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --log-level info
     popd >/dev/null
 
 else
@@ -175,7 +170,7 @@ else
     trap cleanup EXIT INT TERM
 
     pushd "$BACKEND" >/dev/null
-    "$VENV_UVI" app.main:app --host 0.0.0.0 --port 8000 --reload >> "$LOG_DIR/uvicorn.log" 2>&1 &
+    "$VENV_PY" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload >> "$LOG_DIR/uvicorn.log" 2>&1 &
     BACKEND_PID=$!
     popd >/dev/null
 
