@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.user import User
 from app.models.watchlist import Watchlist
+from app.models.account import Account
 from app.models.progress import LearningProgress
 from app.services.user.auth import get_password_hash, verify_password, create_access_token, get_current_user
 from datetime import datetime
@@ -77,3 +78,4 @@ async def mark_read(article_id: int, user: User = Depends(get_current_user), db:
 async def get_progress(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(LearningProgress).where(LearningProgress.user_id == user.id))
     return {'items': [{'article_id': p.article_id, 'is_read': p.is_read, 'read_at': p.read_at.isoformat() if p.read_at else ''} for p in result.scalars().all()]}
+

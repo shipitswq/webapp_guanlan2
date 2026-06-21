@@ -1,6 +1,10 @@
-import datetime
+﻿import datetime
 import akshare as ak
 import pandas as pd
+import time
+
+# Simple in-memory cache for stock search
+_search_cache = {"data": None, "timestamp": 0, "ttl": 300}  # 5 minutes
 from sqlalchemy import select
 from app.core.database import async_session_factory
 from app.models.stock import StockDaily
@@ -41,6 +45,8 @@ async def fetch_kline(stock_code: str, start_date: str = '', end_date: str = '',
                 daily = StockDaily(stock_code=stock_code, stock_name=row.get('名称', ''), trade_date=row['日期'], open=float(row['开盘']), high=float(row['最高']), low=float(row['最低']), close=float(row['收盘']), volume=int(row.get('成交量', 0)), amount=float(row.get('成交额', 0.0)))
                 session.add(daily)
         await session.commit()
+    # Normalize column names to English for consistent downstream access
+    df = df.rename(columns={'日期': 'date', '开盘': 'open', '最高': 'high', '最低': 'low', '收盘': 'close', '成交量': 'volume', '成交额': 'amount', '名称': 'stock_name'})
     return df
 
 async def search_stocks(query: str) -> list:
@@ -62,3 +68,5 @@ async def get_realtime(stock_code: str) -> dict:
     except Exception:
         pass
     return {}
+
+

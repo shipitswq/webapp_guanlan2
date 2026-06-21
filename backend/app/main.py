@@ -1,5 +1,6 @@
 ﻿from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -18,6 +19,7 @@ async def lifespan(app):
     await engine.dispose()
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(knowledge_router)
 app.include_router(market_router)
@@ -25,6 +27,11 @@ app.include_router(indicator_router)
 app.include_router(user_router)
 app.include_router(backtest_router)
 app.include_router(trading_router)
+
+import os as _os
+_dist = _os.environ.get("FRONTEND_DIST")
+if _dist and _os.path.isdir(_dist):
+    app.mount("/", StaticFiles(directory=_dist, html=True), name="frontend")
 
 @app.get("/api/v1/health")
 async def health():

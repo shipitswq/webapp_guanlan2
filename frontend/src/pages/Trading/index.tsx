@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Input, InputNumber, Select, Button, Card, Row, Col, Table, Statistic, message, Tabs } from 'antd';
+﻿import React, { useEffect, useState } from 'react';
+import { Form, Input, InputNumber, Select, Button, Row, Col, Table, Statistic, message, Tabs } from 'antd';
 import api from '../../api/client';
 
 const TradingPage: React.FC = () => {
@@ -57,15 +57,17 @@ const TradingPage: React.FC = () => {
     <div>
       <Row gutter={[16, 16]}>
         <Col span={8}>
-          <Card title="账户概览">
+          <div className="mm-card" style={{ padding: 'var(--mm-space-lg)' }}>
+            <div className="mm-card-title" style={{ fontSize: 16, marginBottom: 'var(--mm-space-md)' }}>账户概览</div>
             <Statistic title="总资产" value={account?.total_assets || 0} precision={2} prefix="¥" />
             <Statistic title="可用资金" value={account?.cash || 0} precision={2} prefix="¥" style={{ marginTop: 8 }} />
             <Statistic title="持仓市值" value={account?.position_value || 0} precision={2} prefix="¥" style={{ marginTop: 8 }} />
             <Statistic title="总收益率" value={account?.total_return || 0} suffix="%" precision={2} valueStyle={{ color: (account?.total_return || 0) >= 0 ? '#3f8600' : '#cf1322' }} style={{ marginTop: 8 }} />
-          </Card>
+          </div>
         </Col>
         <Col span={8}>
-          <Card title="下单">
+          <div className="mm-card" style={{ padding: 'var(--mm-space-lg)' }}>
+            <div className="mm-card-title" style={{ fontSize: 16, marginBottom: 'var(--mm-space-md)' }}>下单</div>
             <Form layout="vertical" onFinish={placeOrder} initialValues={{ direction: 'buy', order_type: 'market' }}>
               <Form.Item name="stock_code" label="股票代码" rules={[{ required: true }]}><Input placeholder="如 000001" /></Form.Item>
               <Form.Item name="direction" label="方向"><Select><Select.Option value="buy">买入</Select.Option><Select.Option value="sell">卖出</Select.Option></Select></Form.Item>
@@ -74,17 +76,19 @@ const TradingPage: React.FC = () => {
               <Form.Item name="quantity" label="数量" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={100} step={100} /></Form.Item>
               <Button type="primary" htmlType="submit" loading={loading} block>提交订单</Button>
             </Form>
-          </Card>
+          </div>
         </Col>
         <Col span={8}>
-          <Card title="当前持仓">
+          <div className="mm-card" style={{ padding: 'var(--mm-space-lg)' }}>
+            <div className="mm-card-title" style={{ fontSize: 16, marginBottom: 'var(--mm-space-md)' }}>当前持仓</div>
             <Table dataSource={positions} columns={posCols} size="small" pagination={false} scroll={{ y: 240 }} rowKey="stock_code" />
-          </Card>
+          </div>
         </Col>
       </Row>
-      <Card title="历史订单" style={{ marginTop: 16 }}>
+      <div className="mm-card" style={{ marginTop: 16, padding: 'var(--mm-space-lg)' }}>
+        <div className="mm-card-title" style={{ fontSize: 16, marginBottom: 'var(--mm-space-md)' }}>历史订单</div>
         <Table dataSource={orders} columns={ordCols} size="small" pagination={{ pageSize: 10 }} rowKey="id" />
-      </Card>
+      </div>
     </div>
   );
 };

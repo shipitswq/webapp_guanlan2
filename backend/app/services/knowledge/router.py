@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+﻿from fastapi import APIRouter, Depends
+from sqlalchemy import select, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.article import Article
@@ -17,7 +17,7 @@ async def list_articles(category_id: int = 0, q: str = '', page: int = 1, size: 
     if category_id:
         query = query.where(Article.category_id == category_id)
     if q:
-        query = query.where(Article.title.contains(q))
+        query = query.where(or_(Article.title.contains(q), Article.summary.contains(q), Article.content.contains(q)))
     total = await db.scalar(select(func.count()).select_from(query.subquery()))
     query = query.order_by(Article.created_at.desc()).offset((page-1)*size).limit(size)
     result = await db.execute(query)
@@ -30,6 +30,9 @@ async def get_article(article_id: int, db: AsyncSession = Depends(get_db)):
     art = result.scalar_one_or_none()
     if not art:
         return {'error': 'not found'}
-    art.read_count = (art.read_count or 0) + 1
+    await db.execute(update(Article).where(Article.id == article_id).values(read_count=Article.read_count + 1))
     await db.commit()
+    art = (await db.execute(select(Article).where(Article.id == article_id))).scalar_one_or_none()
     return {'id': art.id, 'title': art.title, 'summary': art.summary, 'content': art.content, 'category_id': art.category_id, 'tags': art.tags, 'read_count': art.read_count, 'created_at': art.created_at.isoformat() if art.created_at else '', 'updated_at': art.updated_at.isoformat() if art.updated_at else ''}
+
+

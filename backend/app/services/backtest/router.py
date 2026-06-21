@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 import json
 from sqlalchemy import select
@@ -19,7 +19,7 @@ class RunReq(BaseModel):
 async def run_backtest(req: RunReq, db: AsyncSession = Depends(get_db)):
     df = await fetch_kline(req.stock_code, req.start_date, req.end_date)
     if df.empty: return {"error": "No data"}
-    df = df.rename(columns={"??": "open", "??": "high", "??": "low", "??": "close", "???": "volume"})
+    # fetch_kline now returns English column names, no rename needed
     eng = BacktestEngine(df, req.strategy, req.params)
     result = eng.run()
     br = BacktestResult(strategy_name=req.strategy, stock_code=req.stock_code, start_date=req.start_date, end_date=req.end_date, params=json.dumps(req.params), total_return=result["total_return"], annual_return=result["annual_return"], max_drawdown=result["max_drawdown"], sharpe_ratio=result["sharpe_ratio"], trade_count=result["trade_count"], equity_curve=json.dumps(result["equity_curve"]), trades=json.dumps(result["trades"]))
@@ -47,3 +47,4 @@ async def save_strategy(req: SaveReq, db: AsyncSession = Depends(get_db)):
 async def list_strategies(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(BacktestStrategy).order_by(BacktestStrategy.created_at.desc()))
     return {"items": [dict(id=s.id, name=s.name, strategy_type=s.strategy_type, params=json.loads(s.params or "{}")) for s in result.scalars().all()]}
+

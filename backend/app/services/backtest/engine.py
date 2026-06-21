@@ -1,4 +1,4 @@
-import pandas as pd
+﻿import pandas as pd
 import numpy as np
 
 class BacktestEngine:
@@ -40,22 +40,55 @@ class BacktestEngine:
 
     def _get_signal(self, df, i):
         if self.strategy == "ma_cross":
-            n1 = int(self.params.get("n1", 5)); n2 = int(self.params.get("n2", 20))
-            if i < max(n1, n2): return ""
-            ma1 = df["close"].iloc[i-n1+1:i+1].mean(); ma2 = df["close"].iloc[i-n2+1:i+1].mean()
-            ma1_prev = df["close"].iloc[i-n1:i].mean() if i >= n1 else ma1
-            ma2_prev = df["close"].iloc[i-n2:i].mean() if i >= n2 else ma2
-            if ma1_prev <= ma2_prev and ma1 > ma2: return "buy"
-            if ma1_prev >= ma2_prev and ma1 < ma2: return "sell"
+            return self._signal_ma_cross(df, i)
         elif self.strategy == "macd":
-            if i < 34: return ""
-            close = df["close"]
-            ema12 = close.iloc[:i+1].ewm(span=12).mean().iloc[-1]; ema26 = close.iloc[:i+1].ewm(span=26).mean().iloc[-1]
-            ema12_prev = close.iloc[:i].ewm(span=12).mean().iloc[-1] if i > 0 else ema12
-            ema26_prev = close.iloc[:i].ewm(span=26).mean().iloc[-1] if i > 0 else ema26
-            dif = ema12 - ema26; dif_prev = ema12_prev - ema26_prev
-            if dif_prev < 0 and dif > 0: return "buy"
-            if dif_prev > 0 and dif < 0: return "sell"
+            return self._signal_macd(df, i)
+        elif self.strategy == "mean_reversion":
+            return self._signal_mean_reversion(df, i)
+        elif self.strategy == "momentum":
+            return self._signal_momentum(df, i)
+        return ""
+
+    def _signal_ma_cross(self, df, i):
+        n1 = int(self.params.get("n1", 5)); n2 = int(self.params.get("n2", 20))
+        if i < max(n1, n2): return ""
+        ma1 = df["close"].iloc[i-n1+1:i+1].mean(); ma2 = df["close"].iloc[i-n2+1:i+1].mean()
+        ma1_prev = df["close"].iloc[i-n1:i].mean() if i >= n1 else ma1
+        ma2_prev = df["close"].iloc[i-n2:i].mean() if i >= n2 else ma2
+        if ma1_prev <= ma2_prev and ma1 > ma2: return "buy"
+        if ma1_prev >= ma2_prev and ma1 < ma2: return "sell"
+        return ""
+
+    def _signal_macd(self, df, i):
+        if i < 34: return ""
+        close = df["close"]
+        ema12 = close.iloc[:i+1].ewm(span=12).mean().iloc[-1]; ema26 = close.iloc[:i+1].ewm(span=26).mean().iloc[-1]
+        ema12_prev = close.iloc[:i].ewm(span=12).mean().iloc[-1] if i > 0 else ema12
+        ema26_prev = close.iloc[:i].ewm(span=26).mean().iloc[-1] if i > 0 else ema26
+        dif = ema12 - ema26; dif_prev = ema12_prev - ema26_prev
+        if dif_prev < 0 and dif > 0: return "buy"
+        if dif_prev > 0 and dif < 0: return "sell"
+        return ""
+
+    def _signal_mean_reversion(self, df, i):
+        period = int(self.params.get("period", 20))
+        std_mult = float(self.params.get("std_mult", 2.0))
+        if i < period: return ""
+        series = df["close"].iloc[i-period+1:i+1]
+        sma = series.mean(); std = series.std()
+        close = df["close"].iloc[i]
+        if close < sma - std_mult * std: return "buy"
+        if close > sma: return "sell"
+        return ""
+
+    def _signal_momentum(self, df, i):
+        lookback = int(self.params.get("lookback", 10))
+        threshold = float(self.params.get("threshold", 0.02))
+        if i < lookback + 1: return ""
+        returns = (df["close"].iloc[i] / df["close"].iloc[i-lookback] - 1)
+        prev_returns = (df["close"].iloc[i-1] / df["close"].iloc[i-1-lookback] - 1)
+        if returns > threshold and returns > prev_returns: return "buy"
+        if returns < -threshold and returns < prev_returns: return "sell"
         return ""
 
     def _calc_annual_return(self, tr, days):

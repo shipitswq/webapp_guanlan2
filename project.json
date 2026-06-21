@@ -1,20 +1,79 @@
 ﻿{
-    "name":  "guanlan",
-    "version":  "0.1.0",
-    "phase":  "developer",
-    "artifacts":  {
-                      "prd":  "work/prd.md",
-                      "user-stories":  "work/user-stories.md",
-                      "architecture":  "work/architecture.md",
-                      "module-interface-spec":  "work/module-interface-spec.md",
-                      "tasks":  "work/tasks/",
-                      "reviews":  "work/reviews/",
-                      "test-report":  "work/test-report.md",
-                      "integration-report":  "work/integration-report.md"
-                  },
-    "state":  {
-
-              },
-    "created_at":  "2026-06-20T12:08:08Z",
-    "updated_at":  "2026-06-20T12:10:59Z"
+    "name": "guanlan",
+    "version": "0.1.0",
+    "phase": "tester",
+    "phase_status": "in_progress",
+    "artifacts": {
+        "prd": "work/prd.md",
+        "user-stories": "work/user-stories.md",
+        "architecture": "work/architecture.md",
+        "module-interface-spec": "work/module-interface-spec.md",
+        "tasks": "work/tasks/",
+        "reviews": "work/reviews/",
+        "test-report": "work/test-report.md",
+        "integration-report": "work/integration-report.md"
+    },
+    "state": {
+        "review": {
+            "status": "fixes_completed",
+            "date": "2026-06-20",
+            "summary": "All 3 critical and 4 major review issues have been fixed. Remaining: 9 minor issues.",
+            "fixes": {
+                "critical": [
+                    {"id": "CI-01", "description": "backtest/router.py corrupted column names", "fix": "Replaced ?? with correct Chinese column mapping"},
+                    {"id": "CI-02", "description": "Missing Alembic migration", "fix": "Created alembic/ with env.py, script.py.mako, and initial migration 001_initial.py"},
+                    {"id": "CI-03", "description": "Missing vite.config.ts", "fix": "Created vite.config.ts with React plugin and API proxy"}
+                ],
+                "major": [
+                    {"id": "MI-01", "description": "Backtest page missing equity curve chart", "fix": "Added AreaSeries chart using lightweight-charts with baseline comparison"},
+                    {"id": "MI-02", "description": "Knowledge page not using react-markdown", "fix": "Integrated react-markdown + remark-gfm with markdown styles"},
+                    {"id": "MI-03", "description": "Category model missing parent_id", "fix": "Added parent_id field with self-referencing FK for tree structure"},
+                    {"id": "MI-04", "description": "Models use old Column syntax", "fix": "All 11 models migrated to Mapped + mapped_column (85 mapped fields)"},
+                    {"id": "MI-05", "description": "Stock search no autocomplete", "fix": "Added AutoComplete with debounced search API in Market page"},
+                    {"id": "MI-06", "description": "Missing watchlist frontend page", "fix": "Created Watchlist page with add/remove, added route and sidebar menu"},
+                    {"id": "MI-07", "description": "Missing schemas.py", "fix": "Created schemas.py for all 6 service directories: knowledge, market, indicator, backtest, trading, user"},
+                    {"id": "MI-08", "description": "index.html title corrupted", "fix": "Restored proper Chinese title"}
+                ],
+                "minor": [
+                    "fetch_kline column names normalized to English (data_source.py)",
+                    "market/router.py updated for English column names",
+                    "indicator/router.py removed redundant column rename",
+                    "backtest page label fixed (最大回抽 → 最大回撤)",                "Design system applied: CSS tokens + component classes + responsive",
+                "Login/signup page with JWT auth flow",
+                "Knowledge page learning progress tracking",
+                "Watchlist unique constraint added",
+                "Account auto-created on registration"
+                ]
+            },
+            "remaining_minor": [
+                "Read count update not atomic (should use UPDATE counter)",
+                "Article search only matches title, not summary/content",
+                "Indicator calculations have no session cache",
+                "Backtest does not account for price limit up/down",
+                "Limit orders executed as market orders",
+                "Search API fetches all 5000+ stocks on each call",
+                "Chart height fixed at 500px",
+                "Missing .env.example template"
+            ],
+            "review_files": [
+                "work/reviews/review-all.md",
+                "work/reviews/review-task-001.md",
+                "work/reviews/review-task-002.md",
+                "work/reviews/review-task-003.md",
+                "work/reviews/review-task-004.md",
+                "work/reviews/review-task-005.md",
+                "work/reviews/review-task-006.md",
+                "work/reviews/review-task-007.md",
+                "work/reviews/review-task-008.md",
+                "work/reviews/review-task-009.md",
+                "work/reviews/review-task-010.md",
+                "work/reviews/review-task-011.md",
+                "work/reviews/review-task-012.md",
+                "work/reviews/review-task-013.md"
+            ]
+        }
+    },
+    "created_at": "2026-06-20T12:08:08Z",
+    "updated_at": "2026-06-21T07:45:00Z"
 }
+

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+﻿from fastapi import APIRouter
 from app.services.market.data_source import fetch_kline
 from app.services.indicator.compute import compute
 router = APIRouter(prefix='/api/v1/stocks', tags=['indicators'])
@@ -8,7 +8,7 @@ async def get_indicators(code: str, types: str = 'MA', period: str = 'daily', st
     df = await fetch_kline(code, start, end, period)
     if df.empty:
         return {'code': code, 'indicators': []}
-    df = df.rename(columns={'开盘': 'open', '最高': 'high', '最低': 'low', '收盘': 'close', '成交量': 'volume'})
+
     type_list = [t.strip() for t in types.split(',')]
     indicators = []
     for t in type_list:
@@ -23,4 +23,6 @@ async def get_indicators(code: str, types: str = 'MA', period: str = 'daily', st
             indicators.append(compute('RSI', df, window=14))
         elif ut in ('BOLL', 'BOLLINGER'):
             indicators.append(compute('BOLL', df))
-    return {'code': code, 'dates': df.get('date', df.get('日期', [])).tolist(), 'indicators': indicators}
+    return {'code': code, 'dates': df.get('date', []).tolist(), 'indicators': indicators}
+
+
