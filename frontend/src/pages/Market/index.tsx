@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input, Checkbox, Spin, AutoComplete } , Button from 'antd';
+import { Input, Checkbox, Spin, AutoComplete, Button } from 'antd';
 import { createChart } from 'lightweight-charts';
 import api from '../../api/client';
 
