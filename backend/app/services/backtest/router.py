@@ -20,7 +20,7 @@ async def run_backtest(req: RunReq, db: AsyncSession = Depends(get_db)):
     df = await fetch_kline(req.stock_code, req.start_date, req.end_date)
     if df.empty: return {"error": "No data"}
     # fetch_kline now returns English column names, no rename needed
-    eng = BacktestEngine(df, req.strategy, req.params)
+    eng = BacktestEngine(df, req.strategy, req.params, stock_code=req.stock_code)
     result = eng.run()
     br = BacktestResult(strategy_name=req.strategy, stock_code=req.stock_code, start_date=req.start_date, end_date=req.end_date, params=json.dumps(req.params), total_return=result["total_return"], annual_return=result["annual_return"], max_drawdown=result["max_drawdown"], sharpe_ratio=result["sharpe_ratio"], trade_count=result["trade_count"], equity_curve=json.dumps(result["equity_curve"]), trades=json.dumps(result["trades"]))
     db.add(br); await db.commit(); await db.refresh(br)

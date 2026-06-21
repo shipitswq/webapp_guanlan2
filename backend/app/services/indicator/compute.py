@@ -1,5 +1,20 @@
 import pandas as pd
 import numpy as np
+from functools import lru_cache
+import hashlib
+import json
+
+def _cache_key(type_: str, close_hash: str, **kwargs) -> str:
+    """Generate a stable cache key from indicator type + data hash + params."""
+    params_str = json.dumps(kwargs, sort_keys=True)
+    return f"{type_}:{close_hash}:{params_str}"
+
+@lru_cache(maxsize=256)
+def _cached_compute(type_: str, close_tuple: tuple, **kwargs) -> dict:
+    """Cached indicator computation. close_tuple is for hashability."""
+    close = pd.Series(close_tuple)
+    return _compute_raw(type_, close, **kwargs)
+
 
 def compute_ma(close, window=5):
     return close.rolling(window=window).mean().fillna(0).tolist()
@@ -37,8 +52,8 @@ def compute_bollinger(close, window=20, std_dev=2):
     lower = ma - std_dev * std
     return ma.fillna(0).tolist(), upper.fillna(0).tolist(), lower.fillna(0).tolist()
 
-def compute(type_, df, **kwargs):
-    close = df['close'] if isinstance(df, pd.DataFrame) else pd.Series(df)
+def _compute_raw(type_, close, **kwargs):
+    """Raw indicator computation without caching."""
     result = {'type': type_}
     if type_ == 'MA':
         windows = kwargs.get('windows', [5, 10, 20, 60])
@@ -48,8 +63,8 @@ def compute(type_, df, **kwargs):
         dif, dea, macd = compute_macd(close)
         result.update({'DIF': dif, 'DEA': dea, 'MACD': macd})
     elif type_ == 'KDJ':
-        high = df.get('high', close)
-        low = df.get('low', close)
+        high = kwargs.get('high', close)
+        low = kwargs.get('low', close)
         k, d, j = compute_kdj(high, low, close)
         result.update({'K': k, 'D': d, 'J': j})
     elif type_ == 'RSI':
@@ -58,3 +73,17 @@ def compute(type_, df, **kwargs):
         ma, upper, lower = compute_bollinger(close)
         result.update({'MA': ma, 'UPPER': upper, 'LOWER': lower})
     return result
+
+
+def compute(type_, df, **kwargs):
+    """Compute indicator with session-level caching via lru_cache."""
+    close = df['close'] if isinstance(df, pd.DataFrame) else pd.Series(df)
+    # Build extra series for indicators that need high/low
+    extra_kw = {}
+    if type_ == 'KDJ':
+        extra_kw['high'] = df['high'] if isinstance(df, pd.DataFrame) and 'high' in df else close
+        extra_kw['low'] = df['low'] if isinstance(df, pd.DataFrame) and 'low' in df else close
+    # Hash the close series for stable cache key
+    close_hash = hashlib.md5(str(close.round(4).tolist()).encode()).hexdigest()
+    merged_kw = {**kwargs, **extra_kw}
+    return _cached_compute(type_, tuple(close.round(4).tolist()), **merged_kw)

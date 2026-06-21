@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Checkbox, Spin, AutoComplete, Button } from 'antd';
-import { createChart } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import api from '../../api/client';
 
 const indicatorOptions = [
@@ -22,19 +22,28 @@ const MarketPage: React.FC = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: 500,
+    const container = containerRef.current;
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height: Math.max(400, Math.min(window.innerHeight * 0.6, 700)),
       layout: { background: { color: '#ffffff' }, textColor: '#222222' },
       grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
       timeScale: { timeVisible: false },
       crosshair: { mode: 0 },
     });
     chartRef.current = chart;
-    const handleResize = () => { chart.applyOptions({ width: containerRef.current?.clientWidth || 800 }); };
-    window.addEventListener('resize', handleResize);
 
-    return () => { window.removeEventListener('resize', handleResize); chart.remove(); };
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          chart.applyOptions({ width, height });
+        }
+      }
+    });
+    resizeObserver.observe(container);
+
+    return () => { resizeObserver.disconnect(); chart.remove(); };
   }, []);
 
   const renderChart = () => {
@@ -42,8 +51,8 @@ const MarketPage: React.FC = () => {
     setLoading(true);
     clearAllSeries();
 
-    const candleSeries = chartRef.current.addCandlestickSeries();
-    const volumeSeries = chartRef.current.addHistogramSeries({
+    const candleSeries = chartRef.current.addSeries(CandlestickSeries);
+    const volumeSeries = chartRef.current.addSeries(HistogramSeries, {
       color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: '',
     });
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
@@ -77,7 +86,7 @@ const MarketPage: React.FC = () => {
             [5, 10, 20, 60].forEach(n => {
               const k = 'MA' + n;
               if (activeIndicators.includes(k) && ind[k]) {
-                const s = chartRef.current.addLineSeries({ color: colorMap[k] || '#333', lineWidth: 1 });
+                const s = chartRef.current.addSeries(LineSeries, { color: colorMap[k] || '#333', lineWidth: 1 });
                 s.setData(ind[k].map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
                 seriesRefs.current.push(s);
               }
@@ -85,7 +94,7 @@ const MarketPage: React.FC = () => {
           } else if (ind.type === 'BOLL' && activeIndicators.includes('BOLL')) {
             ['MA', 'UPPER', 'LOWER'].forEach(k => {
               if (ind[k]) {
-                const s = chartRef.current.addLineSeries({
+                const s = chartRef.current.addSeries(LineSeries, {
                   color: colorMap['BOLL_' + k] || '#e91e63', lineWidth: 1,
                   lineStyle: k !== 'MA' ? 2 : 0,
                 });
@@ -96,7 +105,7 @@ const MarketPage: React.FC = () => {
           } else if (ind.type === 'MACD' && activeIndicators.includes('MACD')) {
             ['DIF', 'DEA'].forEach(k => {
               if (ind[k]) {
-                const s = chartRef.current.addLineSeries({
+                const s = chartRef.current.addSeries(LineSeries, {
                   color: colorMap['MACD_' + k] || '#1565c0', lineWidth: 1, priceScaleId: 'macd',
                 });
                 s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
@@ -107,7 +116,7 @@ const MarketPage: React.FC = () => {
           } else if (ind.type === 'KDJ' && activeIndicators.includes('KDJ')) {
             ['K', 'D', 'J'].forEach(k => {
               if (ind[k]) {
-                const s = chartRef.current.addLineSeries({
+                const s = chartRef.current.addSeries(LineSeries, {
                   color: colorMap['KDJ_' + k] || '#333', lineWidth: 1, priceScaleId: 'kdj',
                 });
                 s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
@@ -116,7 +125,7 @@ const MarketPage: React.FC = () => {
               }
             });
           } else if (ind.type === 'RSI' && activeIndicators.includes('RSI')) {
-            const s = chartRef.current.addLineSeries({
+            const s = chartRef.current.addSeries(LineSeries, {
               color: colorMap.RSI || '#ff5722', lineWidth: 1, priceScaleId: 'rsi',
             });
             s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
@@ -192,8 +201,16 @@ const MarketPage: React.FC = () => {
       </div>
 
       {/* ── Chart ──────────────────────────────────────────────── */}
-      {loading && <Spin style={{ display: 'block', margin: '60px auto' }} />}
-      <div className="mm-card" style={loading ? { display: 'none' } : { padding: 'var(--mm-space-md)' }}>
+      <div className="mm-card" style={{ padding: 'var(--mm-space-md)', position: 'relative', minHeight: 450 }}>
+        {loading && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,255,255,0.6)',
+          }}>
+            <Spin />
+          </div>
+        )}
         <div ref={containerRef} />
       </div>
     </div>

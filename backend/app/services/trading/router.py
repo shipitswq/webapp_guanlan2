@@ -26,11 +26,36 @@ async def _get_or_create_account(user_id, db):
 @router.post("/orders")
 async def place_order(req: OrderReq, user: User = Depends(get_default_user), db: AsyncSession = Depends(get_db)):
     acc = await _get_or_create_account(user.id, db)
-    fill_price = req.price
+    qt = await get_realtime(req.stock_code)
+    market_price = qt.get("price", 0)
+    if market_price <= 0:
+        return {"error": "Cannot get market price"}
+
+    # Determine fill price based on order type
+    fill_price = 0.0
     if req.order_type == "market":
-        qt = await get_realtime(req.stock_code)
-        fill_price = qt.get("price", 0)
-        if fill_price <= 0: return {"error": "Cannot get market price"}
+        fill_price = market_price
+    elif req.order_type == "limit":
+        # Limit buy: only fill if market_price <= limit_price
+        # Limit sell: only fill if market_price >= limit_price
+        if req.price <= 0:
+            return {"error": "Limit order requires a valid price"}
+        if req.direction == "buy" and market_price <= req.price:
+            fill_price = market_price
+        elif req.direction == "sell" and market_price >= req.price:
+            fill_price = market_price
+        else:
+            # Price condition not met — record unfilled order
+            order = TradeOrder(
+                user_id=user.id, stock_code=req.stock_code, direction=req.direction,
+                order_type=req.order_type, price=req.price, quantity=req.quantity,
+                filled_price=0, status="pending", filled_at=None,
+            )
+            db.add(order); await db.commit(); await db.refresh(order)
+            return {"order_id": order.id, "status": "pending", "message": "Waiting for price condition"}
+    else:
+        return {"error": f"Unknown order type: {req.order_type}"}
+
     total_cost = fill_price * req.quantity
     if req.direction == "buy":
         if acc.cash < total_cost: raise HTTPException(400, "Insufficient funds")

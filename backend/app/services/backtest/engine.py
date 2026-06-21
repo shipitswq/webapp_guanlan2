@@ -1,32 +1,68 @@
 ﻿import pandas as pd
 import numpy as np
 
+
+def _get_price_limit_ratio(stock_code: str) -> float:
+    """Return the daily price limit ratio for a given A-stock code."""
+    code = str(stock_code)
+    if code.startswith('30') or code.startswith('68'):
+        return 0.20  # ChiNext / STAR Board
+    # ST stocks would be 0.05, but we can't detect without metadata
+    return 0.10  # Main board default
+
+
 class BacktestEngine:
-    def __init__(self, df, strategy, params=None):
+    def __init__(self, df, strategy, params=None, stock_code: str = ''):
         self.df = df.copy()
         self.strategy = strategy
         self.params = params or {}
+        self.stock_code = stock_code
+        self.limit_ratio = _get_price_limit_ratio(stock_code) if stock_code else 0.10
         self.equity_curve = []
         self.trades = []
         self.capital = 100000
+
+    def _can_trade(self, row, prev_close, direction: str) -> bool:
+        """Check if a stock can be traded given price limits.
+        direction: 'buy' or 'sell'
+        Returns True if the trade can execute at current close price.
+        """
+        if prev_close is None or prev_close <= 0:
+            return True  # No limit data available, allow trade
+        close = row.get("close", 0)
+        if close <= 0:
+            return False
+        limit_up = prev_close * (1 + self.limit_ratio)
+        limit_down = prev_close * (1 - self.limit_ratio)
+        if direction == "buy":
+            # Cannot buy at limit-up (no sellers)
+            return close < limit_up - 0.001  # Small tolerance for rounding
+        elif direction == "sell":
+            # Cannot sell at limit-down (no buyers)
+            return close > limit_down + 0.001
+        return True
 
     def run(self):
         df = self.df.sort_values("date").reset_index(drop=True)
         position = 0
         cash = self.capital
+        prev_close = None
         for i in range(len(df)):
             row = df.iloc[i]
             close = row.get("close", 0)
             signal = self._get_signal(df, i)
             if signal == "buy" and position == 0 and close > 0:
-                position = int(cash / close)
-                cash -= position * close
-                self.trades.append({"date": str(row["date"]), "type": "buy", "price": float(close), "quantity": position})
+                if self._can_trade(row, prev_close, "buy"):
+                    position = int(cash / close)
+                    cash -= position * close
+                    self.trades.append({"date": str(row["date"]), "type": "buy", "price": float(close), "quantity": position})
             elif signal == "sell" and position > 0:
-                cash += position * close
-                self.trades.append({"date": str(row["date"]), "type": "sell", "price": float(close), "quantity": position})
-                position = 0
+                if self._can_trade(row, prev_close, "sell"):
+                    cash += position * close
+                    self.trades.append({"date": str(row["date"]), "type": "sell", "price": float(close), "quantity": position})
+                    position = 0
             self.equity_curve.append({"date": str(row["date"]), "capital": round(cash + position * close, 2)})
+            prev_close = close
         final_value = cash + position * df.iloc[-1].get("close", 0)
         total_return = (final_value / self.capital - 1) * 100
         annual_return = self._calc_annual_return(total_return, len(df))

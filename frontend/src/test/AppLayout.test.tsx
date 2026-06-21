@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
@@ -22,15 +22,10 @@ describe("AppLayout", () => {
     expect(screen.getByText("观澜 · 股票知识学习与演练平台")).toBeInTheDocument();
   });
 
-  it("未登录状态显示'开始体验'按钮", () => {
+  it("未登录状态显示导航栏（无需登录即可浏览）", () => {
     render(<MemoryRouter><AppLayout><div>content</div></AppLayout></MemoryRouter>);
-    expect(screen.getByText("开始体验")).toBeInTheDocument();
-  });
-
-  it("已登录状态显示'退出'按钮", () => {
-    localStorage.setItem("token", "fake-token");
-    render(<MemoryRouter><AppLayout><div>content</div></AppLayout></MemoryRouter>);
-    expect(screen.getByText("退出")).toBeInTheDocument();
+    expect(screen.getByText("观澜")).toBeInTheDocument();
+    expect(screen.getByText("知识库")).toBeInTheDocument();
   });
 
   it("渲染子元素", () => {
