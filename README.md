@@ -22,11 +22,11 @@ npm run test  # or equivalent
 ## Project Structure
 
 ```
-鈹溾攢鈹€ src/           # Source code
-鈹溾攢鈹€ tests/         # Tests
-鈹溾攢鈹€ docs/          # Documentation & ADRs
-鈹溾攢鈹€ work/          # Generated artifacts (gitignored)
-鈹斺攢鈹€ scripts/       # Utility scripts
+├── src/           # Source code
+├── tests/         # Tests
+├── docs/          # Documentation & ADRs
+├── work/          # Generated artifacts (gitignored)
+└── scripts/       # Utility scripts
 ```
 
 ## Development Workflow
@@ -34,4 +34,6 @@ This project uses an agent-team workflow. See `AGENTS.md` for details.
 
 ## Architecture
 See `work/architecture.md` and `docs/adr/` for design decisions.
+
+
 
