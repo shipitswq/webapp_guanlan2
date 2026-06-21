@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.account import Account
 from app.models.position import Position
 from app.models.order import TradeOrder
-from app.services.user.auth import get_current_user
+from app.services.user.auth import get_default_user
 from app.services.market.data_source import get_realtime
 from datetime import datetime
 
@@ -24,7 +24,7 @@ async def _get_or_create_account(user_id, db):
     return acc
 
 @router.post("/orders")
-async def place_order(req: OrderReq, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def place_order(req: OrderReq, user: User = Depends(get_default_user), db: AsyncSession = Depends(get_db)):
     acc = await _get_or_create_account(user.id, db)
     fill_price = req.price
     if req.order_type == "market":
@@ -53,12 +53,12 @@ async def place_order(req: OrderReq, user: User = Depends(get_current_user), db:
     return {"order_id": order.id, "status": "filled", "filled_price": fill_price}
 
 @router.get("/orders")
-async def list_orders(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_orders(user: User = Depends(get_default_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(TradeOrder).where(TradeOrder.user_id == user.id).order_by(TradeOrder.created_at.desc()).limit(100))
     return {"items": [dict(id=o.id, stock_code=o.stock_code, direction=o.direction, order_type=o.order_type, price=o.price, quantity=o.quantity, filled_price=o.filled_price, status=o.status, created_at=o.created_at.isoformat() if o.created_at else "") for o in result.scalars().all()]}
 
 @router.get("/positions")
-async def get_positions(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_positions(user: User = Depends(get_default_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Position).where(Position.user_id == user.id))
     items = []
     for p in result.scalars().all():
@@ -68,7 +68,7 @@ async def get_positions(user: User = Depends(get_current_user), db: AsyncSession
     return {"items": items}
 
 @router.get("/account")
-async def get_account(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_account(user: User = Depends(get_default_user), db: AsyncSession = Depends(get_db)):
     acc = await _get_or_create_account(user.id, db)
     result = await db.execute(select(Position).where(Position.user_id == user.id))
     pv = 0

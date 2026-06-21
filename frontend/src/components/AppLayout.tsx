@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+﻿import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOutlined, LineChartOutlined, ExperimentOutlined, DollarOutlined, StarOutlined, LogoutOutlined } from '@ant-design/icons';
-import api from '../api/client';
+import { BookOutlined, LineChartOutlined, ExperimentOutlined, DollarOutlined, StarOutlined } from '@ant-design/icons';
 
 const menuItems = [
   { key: '/knowledge', icon: <BookOutlined />, label: '知识库' },
@@ -15,22 +14,6 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const selectedKey = '/' + location.pathname.split('/')[1] || '/knowledge';
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-
-  // Sync token state when localStorage changes
-  useEffect(() => {
-    const t = localStorage.getItem('token');
-    setToken(t);
-    if (t) api.defaults.headers.common['Authorization'] = 'Bearer ' + t;
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user_id');
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
-    navigate('/login');
-  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -59,15 +42,6 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
         {/* ── Right CTAs ─────────────────────────────────────── */}
         <div className="mm-top-nav__actions">
-          {token ? (
-            <button className="mm-btn-tertiary" style={{ padding: '7px 16px', gap: 4 }} onClick={handleLogout}>
-              <LogoutOutlined /> 退出
-            </button>
-          ) : (
-            <button className="mm-btn-primary" onClick={() => navigate('/login')}>
-              开始体验
-            </button>
-          )}
         </div>
       </nav>
 

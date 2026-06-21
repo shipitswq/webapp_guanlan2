@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Input, Checkbox, Spin, AutoComplete } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { Input, Checkbox, Spin, AutoComplete } , Button from 'antd';
 import { createChart } from 'lightweight-charts';
 import api from '../../api/client';
 
@@ -9,6 +10,7 @@ const indicatorOptions = [
 ];
 
 const MarketPage: React.FC = () => {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const [code, setCode] = useState('000001');
@@ -146,8 +148,11 @@ const MarketPage: React.FC = () => {
   return (
     <div>
       {/* ── Header ────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 'var(--mm-space-lg)' }}>
+      <div style={{ marginBottom: 'var(--mm-space-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <p className="mm-heading-sm" style={{ margin: 0 }}>行情与技术指标</p>
+        <Button type="primary" onClick={() => navigate('/trading?code=' + code)}>
+          模拟交易
+        </Button>
       </div>
 
       {/* ── Search + Indicators ──────────────────────────────── */}

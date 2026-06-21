@@ -7,7 +7,6 @@ from app.core.database import engine, Base
 from app.services.knowledge.router import router as knowledge_router
 from app.services.market.router import router as market_router
 from app.services.indicator.router import router as indicator_router
-from app.services.user.router import router as user_router
 from app.services.backtest.router import router as backtest_router
 from app.services.trading.router import router as trading_router
 
@@ -24,7 +23,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http
 app.include_router(knowledge_router)
 app.include_router(market_router)
 app.include_router(indicator_router)
-app.include_router(user_router)
 app.include_router(backtest_router)
 app.include_router(trading_router)
 

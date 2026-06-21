@@ -1,7 +1,7 @@
 ﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
-import LoginPage from './pages/Login';
+
 import KnowledgePage from './pages/Knowledge';
 import MarketPage from './pages/Market';
 import BacktestPage from './pages/Backtest';
@@ -11,7 +11,7 @@ import WatchlistPage from './pages/Watchlist';
 const App: React.FC = () => (
   <BrowserRouter>
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      
       <Route path="/*" element={
         <AppLayout>
           <Routes>

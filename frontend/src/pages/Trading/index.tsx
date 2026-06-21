@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Form, Input, InputNumber, Select, Button, Row, Col, Table, Statistic, message } from 'antd';
 import api from '../../api/client';
 
 const TradingPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const defaultCode = searchParams.get('code') || '';
   const [account, setAccount] = useState<any>(null);
   const [positions, setPositions] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -68,8 +71,8 @@ const TradingPage: React.FC = () => {
         <Col span={8}>
           <div className="mm-card" style={{ padding: 'var(--mm-space-lg)' }}>
             <div className="mm-card-title" style={{ fontSize: 16, marginBottom: 'var(--mm-space-md)' }}>下单</div>
-            <Form layout="vertical" onFinish={placeOrder} initialValues={{ direction: 'buy', order_type: 'market' }}>
-              <Form.Item name="stock_code" label="股票代码" rules={[{ required: true }]}><Input placeholder="如 000001" /></Form.Item>
+            <Form layout="vertical" onFinish={placeOrder} initialValues={{ direction: 'buy', order_type: 'market', stock_code: defaultCode }}>
+              <Form.Item name="stock_code" label="股票代码" rules={[{ required: true }]}><Input placeholder="如 000001" defaultValue={defaultCode} /></Form.Item>
               <Form.Item name="direction" label="方向"><Select><Select.Option value="buy">买入</Select.Option><Select.Option value="sell">卖出</Select.Option></Select></Form.Item>
               <Form.Item name="order_type" label="订单类型"><Select><Select.Option value="market">市价单</Select.Option><Select.Option value="limit">限价单</Select.Option></Select></Form.Item>
               <Form.Item name="price" label="价格（限价单必填）"><InputNumber style={{ width: '100%' }} min={0} step={0.01} /></Form.Item>

@@ -36,3 +36,63 @@ async def get_article(article_id: int, db: AsyncSession = Depends(get_db)):
     return {'id': art.id, 'title': art.title, 'summary': art.summary, 'content': art.content, 'category_id': art.category_id, 'tags': art.tags, 'read_count': art.read_count, 'created_at': art.created_at.isoformat() if art.created_at else '', 'updated_at': art.updated_at.isoformat() if art.updated_at else ''}
 
 
+
+from pydantic import BaseModel
+from typing import Optional
+
+class ArticleCreate(BaseModel):
+    title: str
+    summary: str = ""
+    content: str = ""
+    category_id: int = 1
+    tags: str = ""
+
+class ArticleUpdate(BaseModel):
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    category_id: Optional[int] = None
+    tags: Optional[str] = None
+
+
+@router.post('/articles')
+async def create_article(req: ArticleCreate, db: AsyncSession = Depends(get_db)):
+    import datetime
+    art = Article(
+        title=req.title, summary=req.summary, content=req.content,
+        category_id=req.category_id, tags=req.tags,
+        read_count=0, created_at=datetime.datetime.utcnow()
+    )
+    db.add(art)
+    await db.commit()
+    await db.refresh(art)
+    return {'id': art.id, 'title': art.title}
+
+
+@router.put('/articles/{article_id}')
+async def update_article(article_id: int, req: ArticleUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Article).where(Article.id == article_id))
+    art = result.scalar_one_or_none()
+    if not art:
+        return {'error': 'not found'}
+    if req.title is not None: art.title = req.title
+    if req.summary is not None: art.summary = req.summary
+    if req.content is not None: art.content = req.content
+    if req.category_id is not None: art.category_id = req.category_id
+    if req.tags is not None: art.tags = req.tags
+    import datetime
+    art.updated_at = datetime.datetime.utcnow()
+    await db.commit()
+    await db.refresh(art)
+    return {'id': art.id, 'title': art.title}
+
+
+@router.delete('/articles/{article_id}')
+async def delete_article(article_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Article).where(Article.id == article_id))
+    art = result.scalar_one_or_none()
+    if not art:
+        return {'error': 'not found'}
+    await db.delete(art)
+    await db.commit()
+    return {'status': 'deleted'}
