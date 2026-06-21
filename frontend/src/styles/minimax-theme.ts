@@ -84,7 +84,7 @@ const minimaxTheme: ThemeConfig = {
       borderRadiusLG: 8,
       headerBg: '#f7f8fa',
       headerColor: '#5f5f5f',
-      headerFontWeight: 600,
+      
       rowHoverBg: '#f7f8fa',
       borderColor: '#eaecf0',
       cellPaddingBlock: 12,
