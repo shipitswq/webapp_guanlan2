@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input, Table, Tag, Button, Spin, Empty, message, AutoComplete } from 'antd';
-import { StarOutlined, PlusOutlined, DeleteOutlined, LineChartOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 
@@ -149,7 +149,7 @@ const WatchlistPage: React.FC = () => {
             <Input.Search
               enterButton={<><PlusOutlined /> 添加</>}
               loading={adding}
-              onSearch={v => {
+              onSearch={() => {
                 if (searchResults.length > 0) {
                   addStock(searchResults[0].code, searchResults[0].name);
                 }

@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Form, Input, InputNumber, Select, Button, Card, Row, Col, Statistic, Table, message, Spin } from "antd";
-import { createChart } from "lightweight-charts";
+import { createChart, AreaSeries, LineSeries } from "lightweight-charts";
 import api from "../../api/client";
 
 const BacktestPage: React.FC = () => {
@@ -43,7 +43,7 @@ const BacktestPage: React.FC = () => {
     });
     chartInstanceRef.current = chart;
 
-    const areaSeries = chart.addAreaSeries({
+    const areaSeries = chart.addSeries(AreaSeries, {
       lineColor: "#1890ff", topColor: "rgba(24,144,255,0.3)", bottomColor: "rgba(24,144,255,0.05)", lineWidth: 2,
     });
     areaSeries.setData(result.equity_curve.map((d: any) => ({
@@ -51,7 +51,7 @@ const BacktestPage: React.FC = () => {
     })));
 
     // Add baseline at initial capital
-    const baselineSeries = chart.addLineSeries({
+    const baselineSeries = chart.addSeries(LineSeries, {
       color: "#ff9800", lineWidth: 1, lineStyle: 2,  // dashed
     });
     const equity = result.equity_curve;

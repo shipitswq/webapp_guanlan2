@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    antd Theme — MiniMax Design System
    Maps DESIGN.md tokens to antd ConfigProvider theme
    ═══════════════════════════════════════════════════════════ */
@@ -84,7 +84,6 @@ const minimaxTheme: ThemeConfig = {
       borderRadiusLG: 8,
       headerBg: '#f7f8fa',
       headerColor: '#5f5f5f',
-      headerFontSize: 13,
       headerFontWeight: 600,
       rowHoverBg: '#f7f8fa',
       borderColor: '#eaecf0',
@@ -139,7 +138,6 @@ const minimaxTheme: ThemeConfig = {
     Form: {
       labelFontSize: 14,
       labelColor: '#222222',
-      labelFontWeight: 500,
     },
     Modal: {
       borderRadiusLG: 16,

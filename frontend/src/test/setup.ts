@@ -1,4 +1,5 @@
-﻿import "@testing-library/jest-dom/vitest";
+import { vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 // Polyfill ResizeObserver for jsdom (required by Ant Design v5+)
 globalThis.ResizeObserver = class ResizeObserver {
@@ -25,10 +26,7 @@ Object.defineProperty(window, "matchMedia", {
 // Mock lightweight-charts (jsdom has no Canvas support)
 vi.mock("lightweight-charts", () => ({
   createChart: vi.fn(() => ({
-    addCandlestickSeries: vi.fn(() => ({ setData: vi.fn() })),
-    addHistogramSeries: vi.fn(() => ({ setData: vi.fn(), priceScale: vi.fn(() => ({ applyOptions: vi.fn() })) })),
-    addLineSeries: vi.fn(() => ({ setData: vi.fn(), priceScale: vi.fn(() => ({ applyOptions: vi.fn() })) })),
-    addAreaSeries: vi.fn(() => ({ setData: vi.fn() })),
+    addSeries: vi.fn(() => ({ setData: vi.fn(), priceScale: vi.fn(() => ({ applyOptions: vi.fn() })) })),
     removeSeries: vi.fn(),
     remove: vi.fn(),
     applyOptions: vi.fn(),

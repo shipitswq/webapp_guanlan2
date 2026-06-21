@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
-import { Form, Input, InputNumber, Select, Button, Row, Col, Table, Statistic, message, Tabs } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Form, Input, InputNumber, Select, Button, Row, Col, Table, Statistic, message } from 'antd';
 import api from '../../api/client';
 
 const TradingPage: React.FC = () => {

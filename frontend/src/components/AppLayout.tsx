@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOutlined, LineChartOutlined, ExperimentOutlined, DollarOutlined, StarOutlined, UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { BookOutlined, LineChartOutlined, ExperimentOutlined, DollarOutlined, StarOutlined, LogoutOutlined } from '@ant-design/icons';
 import api from '../api/client';
 
 const menuItems = [

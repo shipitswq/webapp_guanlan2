@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Input, Checkbox, Spin, AutoComplete } from 'antd';
 import { createChart } from 'lightweight-charts';
 import api from '../../api/client';
@@ -129,7 +129,7 @@ const MarketPage: React.FC = () => {
   useEffect(() => { renderChart(); }, [code, activeIndicators]);
 
   const [searchResults, setSearchResults] = useState<{code: string; name: string}[]>([]);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleSearch = (text: string) => {
     setCode(text);
