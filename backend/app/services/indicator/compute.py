@@ -61,7 +61,7 @@ def _compute_raw(type_, close, **kwargs):
             result[f'MA{w}'] = compute_ma(close, w)
     elif type_ == 'MACD':
         dif, dea, macd = compute_macd(close)
-        result.update({'DIF': dif, 'DEA': dea, 'MACD': macd})
+        result.update({'DIF': dif, 'DEA': dea, 'MACD': macd, 'HIST': macd})
     elif type_ == 'KDJ':
         high = kwargs.get('high', close)
         low = kwargs.get('low', close)

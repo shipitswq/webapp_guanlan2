@@ -1,7 +1,8 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Input, Checkbox, Spin, AutoComplete, Button } from 'antd';
-import { createChart, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Input, Spin, AutoComplete, Button } from 'antd';
+import { ChartManager, COLORS, PERIOD_OPTIONS, PERIOD_LABELS } from './ChartManager';
+import type { KlineData, Period } from './ChartManager';
 import api from '../../api/client';
 
 const indicatorOptions = [
@@ -11,146 +12,219 @@ const indicatorOptions = [
 
 const MarketPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const [code, setCode] = useState('000001');
+  const managerRef = useRef<ChartManager | null>(null);
+
+  // Read code & period from URL, fallback to defaults
+  const [code, setCode] = useState(() => searchParams.get('code') || '000001');
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = searchParams.get('period');
+    return (PERIOD_OPTIONS.includes(p as Period) ? p : 'daily') as Period;
+  });
   const [loading, setLoading] = useState(false);
+  const [loadingIndicators, setLoadingIndicators] = useState(false);
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA5', 'MA10', 'MA20']);
-  const seriesRefs = useRef<any[]>([]);
+  const klineDataRef = useRef<KlineData | null>(null);
 
-  const clearAllSeries = () => { seriesRefs.current.forEach(s => { try { chartRef.current?.removeSeries(s); } catch { /* ignore */ } }); seriesRefs.current = []; };
-
+  // ── Init ChartManager ─────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
-    const container = containerRef.current;
-    const chart = createChart(container, {
-      width: container.clientWidth,
-      height: Math.max(400, Math.min(window.innerHeight * 0.6, 700)),
-      layout: { background: { color: '#ffffff' }, textColor: '#222222' },
-      grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
-      timeScale: { timeVisible: false },
-      crosshair: { mode: 0 },
-    });
-    chartRef.current = chart;
+    const manager = new ChartManager(containerRef.current);
+    managerRef.current = manager;
 
     const resizeObserver = new ResizeObserver(entries => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0) {
-          chart.applyOptions({ width, height });
+          manager.chart.applyOptions({ width, height });
         }
       }
     });
-    resizeObserver.observe(container);
+    resizeObserver.observe(containerRef.current);
 
-    return () => { resizeObserver.disconnect(); chart.remove(); };
+    return () => { resizeObserver.disconnect(); manager.destroy(); };
   }, []);
 
-  const renderChart = () => {
-    if (!code || !chartRef.current) return;
+  // ── Fetch K-line (on code or period change) ────────────────────
+  const fetchAndRenderKline = useCallback(async (stockCode: string, klinePeriod: Period) => {
     setLoading(true);
-    clearAllSeries();
+    try {
+      const res = await api.get('/api/v1/stocks/' + stockCode + '/kline', {
+        params: { period: klinePeriod },
+      });
+      const data: KlineData = res.data;
+      if (!data?.dates?.length) return;
 
-    const candleSeries = chartRef.current.addSeries(CandlestickSeries);
-    const volumeSeries = chartRef.current.addSeries(HistogramSeries, {
-      color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: '',
-    });
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-    seriesRefs.current.push(candleSeries, volumeSeries);
+      klineDataRef.current = data;
+      const m = managerRef.current;
+      if (!m) return;
 
-    api.get('/api/v1/stocks/' + code + '/kline').then(res => {
-      const { dates, open, high, low, close, volume } = res.data;
-      if (!dates?.length) { setLoading(false); return; }
-      candleSeries.setData(dates.map((d: string, i: number) => ({
-        time: d.replace(/-/g, '/'), open: open[i], high: high[i], low: low[i], close: close[i],
-      })));
-      volumeSeries.setData(dates.map((d: string, i: number) => ({
-        time: d.replace(/-/g, '/'), value: volume[i],
-        color: close[i] >= open[i] ? '#26a69a' : '#ef5350',
-      })));
-    }).finally(() => setLoading(false));
+      // Rebuild main chart
+      if (m.candleSeries) { try { m.chart.removeSeries(m.candleSeries); } catch { /* */ } }
+      if (m.volumeSeries) { try { m.chart.removeSeries(m.volumeSeries); } catch { /* */ } }
+      m.clearMainIndicators();
+      m.clearSubPanes();
 
-    if (activeIndicators.length > 0) {
-      api.get('/api/v1/stocks/' + code + '/indicators', { params: { types: activeIndicators.join(',') } }).then(res => {
-        const { dates, indicators } = res.data;
-        if (!indicators?.length) return;
-        const colorMap: Record<string, string> = {
-          MA5: '#2196f3', MA10: '#4caf50', MA20: '#ff9800', MA60: '#f44336',
-          MACD_DIF: '#1565c0', MACD_DEA: '#c62828',
-          KDJ_K: '#4caf50', KDJ_D: '#2196f3', KDJ_J: '#f44336',
-          RSI: '#ff5722',
-          BOLL_MA: '#9c27b0', BOLL_UPPER: '#e91e63', BOLL_LOWER: '#e91e63',
-        };
-        indicators.forEach((ind: any) => {
-          if (ind.type === 'MA') {
-            [5, 10, 20, 60].forEach(n => {
-              const k = 'MA' + n;
-              if (activeIndicators.includes(k) && ind[k]) {
-                const s = chartRef.current.addSeries(LineSeries, { color: colorMap[k] || '#333', lineWidth: 1 });
-                s.setData(ind[k].map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
-                seriesRefs.current.push(s);
-              }
-            });
-          } else if (ind.type === 'BOLL' && activeIndicators.includes('BOLL')) {
-            ['MA', 'UPPER', 'LOWER'].forEach(k => {
-              if (ind[k]) {
-                const s = chartRef.current.addSeries(LineSeries, {
-                  color: colorMap['BOLL_' + k] || '#e91e63', lineWidth: 1,
-                  lineStyle: k !== 'MA' ? 2 : 0,
-                });
-                s.setData(ind[k].map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
-                seriesRefs.current.push(s);
-              }
-            });
-          } else if (ind.type === 'MACD' && activeIndicators.includes('MACD')) {
-            ['DIF', 'DEA'].forEach(k => {
-              if (ind[k]) {
-                const s = chartRef.current.addSeries(LineSeries, {
-                  color: colorMap['MACD_' + k] || '#1565c0', lineWidth: 1, priceScaleId: 'macd',
-                });
-                s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
-                s.setData(ind[k].map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
-                seriesRefs.current.push(s);
-              }
-            });
-          } else if (ind.type === 'KDJ' && activeIndicators.includes('KDJ')) {
-            ['K', 'D', 'J'].forEach(k => {
-              if (ind[k]) {
-                const s = chartRef.current.addSeries(LineSeries, {
-                  color: colorMap['KDJ_' + k] || '#333', lineWidth: 1, priceScaleId: 'kdj',
-                });
-                s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
-                s.setData(ind[k].map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
-                seriesRefs.current.push(s);
-              }
-            });
-          } else if (ind.type === 'RSI' && activeIndicators.includes('RSI')) {
-            const s = chartRef.current.addSeries(LineSeries, {
-              color: colorMap.RSI || '#ff5722', lineWidth: 1, priceScaleId: 'rsi',
-            });
-            s.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
-            s.setData(ind.RSI.map((v: number, i: number) => ({ time: dates[i]?.replace(/-/g, '/'), value: v })));
-            seriesRefs.current.push(s);
+      m.setPeriod(klinePeriod);
+      m.addCandlestickSeries();
+      m.addVolumeSeries();
+      m.setMainData(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ── Render main chart overlays (MA/BOLL) ──────────────────────
+  const renderMainOverlays = useCallback((indicatorList: any[], dates: string[]) => {
+    const m = managerRef.current;
+    if (!m) return;
+    m.clearMainIndicators();
+
+    for (const ind of indicatorList) {
+      if (ind.type === 'MA') {
+        [5, 10, 20, 60].forEach(n => {
+          const k = 'MA' + n;
+          if (activeIndicators.includes(k) && ind[k]) {
+            m.addMainIndicatorLine(
+              ind[k].map((v: number, i: number) => ({ time: dates[i], value: v })),
+              COLORS[k] || '#333',
+            );
           }
         });
-      });
+      }
+      if (ind.type === 'BOLL' && activeIndicators.includes('BOLL')) {
+        (['MA', 'UPPER', 'LOWER'] as const).forEach(key => {
+          if (ind[key]) {
+            const isMA = key === 'MA';
+            m.addMainIndicatorLine(
+              ind[key].map((v: number, i: number) => ({ time: dates[i], value: v })),
+              COLORS['BOLL_' + key] || '#e91e63',
+              isMA ? undefined : 2, // Dashed for upper/lower
+            );
+          }
+        });
+      }
     }
-  };
+  }, [activeIndicators]);
 
-  useEffect(() => { renderChart(); }, [code, activeIndicators]);
+  // ── Render sub-panes (MACD/KDJ/RSI) ───────────────────────────
+  const renderSubPanels = useCallback((indicatorList: any[], dates: string[]) => {
+    const m = managerRef.current;
+    if (!m) return;
+    m.clearSubPanes();
 
+    for (const ind of indicatorList) {
+      if (ind.type === 'MACD' && activeIndicators.includes('MACD')) {
+        const pane = m.ensureSubPane('MACD');
+        // DIF line
+        if (ind.DIF) {
+          m.addSubPaneLine(pane,
+            ind.DIF.map((v: number, i: number) => ({ time: dates[i], value: v })),
+            COLORS.MACD_DIF);
+        }
+        // DEA line
+        if (ind.DEA) {
+          m.addSubPaneLine(pane,
+            ind.DEA.map((v: number, i: number) => ({ time: dates[i], value: v })),
+            COLORS.MACD_DEA);
+        }
+        // Histogram (HIST field from Task-022)
+        const histData = ind.HIST || ind.MACD;
+        if (histData) {
+          m.addSubPaneHistogram(pane,
+            histData.map((v: number, i: number) => ({
+              time: dates[i],
+              value: v,
+              color: v >= 0 ? COLORS.MACD_HIST_UP : COLORS.MACD_HIST_DOWN,
+            })));
+        }
+      }
+
+      if (ind.type === 'KDJ' && activeIndicators.includes('KDJ')) {
+        const pane = m.ensureSubPane('KDJ');
+        if (ind.K) m.addSubPaneLine(pane,
+          ind.K.map((v: number, i: number) => ({ time: dates[i], value: v })), COLORS.KDJ_K);
+        if (ind.D) m.addSubPaneLine(pane,
+          ind.D.map((v: number, i: number) => ({ time: dates[i], value: v })), COLORS.KDJ_D);
+        if (ind.J) m.addSubPaneLine(pane,
+          ind.J.map((v: number, i: number) => ({ time: dates[i], value: v })), COLORS.KDJ_J);
+        // Reference lines
+        m.addSubPaneRefLine(pane, 80, COLORS.REF_OVERBOUGHT);
+        m.addSubPaneRefLine(pane, 20, COLORS.REF_OVERSOLD);
+      }
+
+      if (ind.type === 'RSI' && activeIndicators.includes('RSI')) {
+        const pane = m.ensureSubPane('RSI');
+        if (ind.RSI) {
+          m.addSubPaneLine(pane,
+            ind.RSI.map((v: number, i: number) => ({ time: dates[i], value: v })), COLORS.RSI);
+        }
+        // Reference lines
+        m.addSubPaneRefLine(pane, 70, COLORS.REF_OVERBOUGHT);
+        m.addSubPaneRefLine(pane, 30, COLORS.REF_OVERSOLD);
+      }
+    }
+
+    // Adjust chart height to accommodate sub-panes
+    const subPaneCount = ['MACD', 'KDJ', 'RSI'].filter(t => activeIndicators.includes(t)).length;
+    const baseHeight = Math.max(400, Math.min(window.innerHeight * 0.6, 700));
+    const totalHeight = baseHeight + subPaneCount * 120;
+    m.chart.applyOptions({ height: totalHeight > 1000 ? 1000 : totalHeight });
+  }, [activeIndicators]);
+
+  // ── Fetch indicators (on code, period, or activeIndicators change)
+  const fetchAndRenderIndicators = useCallback(async (stockCode: string, activeTypes: string[], klinePeriod: Period) => {
+    if (!activeTypes.length) {
+      const m = managerRef.current;
+      if (m) { m.clearMainIndicators(); m.clearSubPanes(); }
+      return;
+    }
+    setLoadingIndicators(true);
+    try {
+      const res = await api.get('/api/v1/stocks/' + stockCode + '/indicators', {
+        params: { types: activeTypes.join(','), period: klinePeriod },
+      });
+      const { dates, indicators } = res.data;
+      if (!indicators?.length) return;
+
+      renderMainOverlays(indicators, dates);
+      renderSubPanels(indicators, dates);
+    } finally {
+      setLoadingIndicators(false);
+    }
+  }, [renderMainOverlays, renderSubPanels]);
+
+  // ── Effect: code/period change → K-line + indicators ────────────
+  useEffect(() => {
+    if (!managerRef.current) return;
+    setSearchParams({ code, period }, { replace: true });
+    fetchAndRenderKline(code, period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, period]);
+
+  // ── Effect: code/period/indicators change → indicators ───────────
+  useEffect(() => {
+    if (!managerRef.current || !klineDataRef.current) return;
+    fetchAndRenderIndicators(code, activeIndicators, period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, period, activeIndicators]);
+
+  // ── Search ────────────────────────────────────────────────────
   const [searchResults, setSearchResults] = useState<{code: string; name: string}[]>([]);
+  const [searching, setSearching] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleSearch = (text: string) => {
-    setCode(text);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!text || text.length < 1) { setSearchResults([]); return; }
+    if (!text || text.length < 1) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/api/v1/stocks/search', { params: { q: text } });
         setSearchResults(res.data.items || []);
       } catch { setSearchResults([]); }
+      setSearching(false);
     }, 300);
   };
 
@@ -168,16 +242,29 @@ const MarketPage: React.FC = () => {
       <div className="mm-card" style={{ marginBottom: 'var(--mm-space-lg)', padding: 'var(--mm-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--mm-space-md)', marginBottom: 'var(--mm-space-md)' }}>
           <AutoComplete
-            value={code}
             options={searchResults.map(s => ({ value: s.code + ' - ' + s.name }))}
             onSearch={handleSearch}
             onSelect={v => { setCode(v.split(' - ')[0]); setSearchResults([]); }}
             style={{ width: 280 }}
             placeholder="输入股票代码或名称"
-            notFoundContent="未找到匹配股票"
+            notFoundContent={searching ? '搜索中...' : '未找到匹配股票'}
           >
             <Input.Search enterButton="查询" onSearch={v => setCode(v)} />
           </AutoComplete>
+        </div>
+
+        {/* ── Period selector ──────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 'var(--mm-space-md)', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--mm-space-md)' }}>
+          <span style={{ fontFamily: 'var(--mm-font-family)', fontSize: 'var(--mm-body-sm-size)', color: 'var(--mm-steel)', fontWeight: 500 }}>K线周期</span>
+          {PERIOD_OPTIONS.map(p => (
+            <label
+              key={p}
+              className={'mm-pill-tab' + (period === p ? ' mm-pill-tab--active' : '')}
+              onClick={() => setPeriod(p)}
+            >
+              {PERIOD_LABELS[p]}
+            </label>
+          ))}
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--mm-space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -186,14 +273,10 @@ const MarketPage: React.FC = () => {
             <label
               key={opt.value}
               className={'mm-pill-tab' + (activeIndicators.includes(opt.value) ? ' mm-pill-tab--active' : '')}
+              onClick={() => setActiveIndicators(prev =>
+                prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value]
+              )}
             >
-              <Checkbox
-                checked={activeIndicators.includes(opt.value)}
-                onChange={e => setActiveIndicators(prev =>
-                  e.target.checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value)
-                )}
-                style={{ display: 'none' }}
-              />
               {opt.label}
             </label>
           ))}
@@ -209,6 +292,14 @@ const MarketPage: React.FC = () => {
             background: 'rgba(255,255,255,0.6)',
           }}>
             <Spin />
+          </div>
+        )}
+        {loadingIndicators && !loading && (
+          <div style={{
+            position: 'absolute', top: 8, right: 8, zIndex: 10,
+            background: 'rgba(255,255,255,0.8)', borderRadius: 4, padding: '2px 8px',
+          }}>
+            <Spin size="small" />
           </div>
         )}
         <div ref={containerRef} />

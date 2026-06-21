@@ -118,25 +118,26 @@ async def fetch_kline(
     """
     category = _mootdx_category(period)
 
-    # 1. Try DB cache first (instant response for previously fetched stocks)
-    async with async_session_factory() as session:
-        stmt = select(StockDaily).where(StockDaily.stock_code == stock_code)
-        if start_date:
-            stmt = stmt.where(StockDaily.trade_date >= datetime.date.fromisoformat(start_date))
-        if end_date:
-            stmt = stmt.where(StockDaily.trade_date <= datetime.date.fromisoformat(end_date))
-        stmt = stmt.order_by(StockDaily.trade_date)
-        result = await session.execute(stmt)
-        rows = result.scalars().all()
-        if rows:
-            return pd.DataFrame({
-                "date": [r.trade_date.isoformat() for r in rows],
-                "open": [r.open for r in rows],
-                "high": [r.high for r in rows],
-                "low": [r.low for r in rows],
-                "close": [r.close for r in rows],
-                "volume": [r.volume for r in rows],
-            })
+    # 1. Try DB cache first (only for daily — minute/weekly/monthly not cached)
+    if period == "daily":
+        async with async_session_factory() as session:
+            stmt = select(StockDaily).where(StockDaily.stock_code == stock_code)
+            if start_date:
+                stmt = stmt.where(StockDaily.trade_date >= datetime.date.fromisoformat(start_date))
+            if end_date:
+                stmt = stmt.where(StockDaily.trade_date <= datetime.date.fromisoformat(end_date))
+            stmt = stmt.order_by(StockDaily.trade_date)
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+            if rows:
+                return pd.DataFrame({
+                    "date": [r.trade_date.isoformat() for r in rows],
+                    "open": [r.open for r in rows],
+                    "high": [r.high for r in rows],
+                    "low": [r.low for r in rows],
+                    "close": [r.close for r in rows],
+                    "volume": [r.volume for r in rows],
+                })
 
     # 2. Fetch from mootdx TCP
     client = _get_client()
@@ -156,32 +157,39 @@ async def fetch_kline(
 
     # 3. Normalize fields from mootdx format
     #    mootdx bars() columns: open, close, high, low, vol, amount, datetime, ...
-    df["trade_date"] = pd.to_datetime(df["datetime"]).dt.date
+    #    Daily/weekly/monthly → date only (YYYY-MM-DD)
+    #    Minute-level → keep full datetime (YYYY-MM-DD HH:MM:SS) for chart time axis
+    is_intraday = period in ("1m", "5m", "15m", "30m", "60m")
+    if is_intraday:
+        df["trade_date"] = pd.to_datetime(df["datetime"])
+    else:
+        df["trade_date"] = pd.to_datetime(df["datetime"]).dt.date
 
-    # 4. Write back to DB cache
-    async with async_session_factory() as session:
-        for _, row in df.iterrows():
-            td = row["trade_date"]
-            existing = await session.execute(
-                select(StockDaily).where(
-                    StockDaily.stock_code == stock_code,
-                    StockDaily.trade_date == td,
+    # 4. Write back to DB cache (daily only — minute data not persisted)
+    if period == "daily":
+        async with async_session_factory() as session:
+            for _, row in df.iterrows():
+                td = row["trade_date"]
+                existing = await session.execute(
+                    select(StockDaily).where(
+                        StockDaily.stock_code == stock_code,
+                        StockDaily.trade_date == td,
+                    )
                 )
-            )
-            if existing.scalar_one_or_none():
-                continue
-            session.add(StockDaily(
-                stock_code=stock_code,
-                stock_name="",
-                trade_date=td,
-                open=float(row["open"]),
-                high=float(row["high"]),
-                low=float(row["low"]),
-                close=float(row["close"]),
-                volume=int(row["vol"]),
-                amount=float(row["amount"]),
-            ))
-        await session.commit()
+                if existing.scalar_one_or_none():
+                    continue
+                session.add(StockDaily(
+                    stock_code=stock_code,
+                    stock_name="",
+                    trade_date=td,
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=int(row["vol"]),
+                    amount=float(row["amount"]),
+                ))
+            await session.commit()
 
     # 5. Build result
     out = pd.DataFrame({

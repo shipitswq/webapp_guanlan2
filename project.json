@@ -1,8 +1,10 @@
 {
     "name": "guanlan",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "phase": "completed",
     "phase_status": "completed",
+    "cycle": 2,
+    "cycle_theme": "F-02 技术指标增强",
     "artifacts": {
         "prd": "work/prd.md",
         "user-stories": "work/user-stories.md",
@@ -11,7 +13,9 @@
         "tasks": "work/tasks/",
         "reviews": "work/reviews/",
         "test-report": "work/test-report.md",
-        "integration-report": "work/integration-report.md"
+        "integration-report": "work/integration-report.md",
+        "prd-f02": "work/prd-f02-indicators.md",
+        "user-stories-f02": "work/user-stories-f02.md"
     },
     "state": {
         "tester": {
@@ -21,5 +25,18 @@
         }
     },
     "created_at": "2026-06-20T12:08:08Z",
-    "updated_at": "2026-06-21T12:26:00Z"
+    "updated_at": "2026-06-21T13:37:00Z",
+    "cycle_2": {
+        "theme": "F-02 技术指标增强",
+        "tasks": {
+            "022": "Backend MACD HIST field",
+            "023": "ChartManager utility",
+            "024": "MarketPage refactoring",
+            "025": "Tests update"
+        },
+        "result": {
+            "backend_tests": "9/9 pass",
+            "frontend_tests": "22/22 pass"
+        }
+    }
 }

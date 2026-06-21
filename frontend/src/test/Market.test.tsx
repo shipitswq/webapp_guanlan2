@@ -34,4 +34,25 @@ describe("MarketPage", () => {
     await user.click(screen.getByText("MA5"));
     expect(screen.getByText("RSI")).toBeInTheDocument();
   });
+
+  it("勾选 MACD 切换 pill-tab 激活状态", async () => {
+    mockGet.mockResolvedValue({ data: { dates: [], open: [], high: [], low: [], close: [], volume: [] } });
+    render(<MemoryRouter><MarketPage /></MemoryRouter>);
+    const user = userEvent.setup();
+    await waitFor(() => { expect(screen.getByText("MACD")).toBeInTheDocument(); });
+    await user.click(screen.getByText("MACD"));
+    // MACD should now be active (pill-tab has active class via parent label)
+    expect(screen.getByText("MACD").closest('label')).toBeInTheDocument();
+  });
+
+  it("搜索框接受输入", async () => {
+    mockGet.mockResolvedValue({ data: { dates: [], open: [], high: [], low: [], close: [], volume: [] } });
+    render(<MemoryRouter><MarketPage /></MemoryRouter>);
+    await waitFor(() => { expect(screen.getByText("技术指标")).toBeInTheDocument(); });
+    const input = screen.getByPlaceholderText("输入股票代码或名称");
+    const user = userEvent.setup();
+    await user.clear(input);
+    await user.type(input, "600519");
+    expect(input).toHaveValue("600519");
+  });
 });

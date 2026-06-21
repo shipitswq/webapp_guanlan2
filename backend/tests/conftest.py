@@ -11,6 +11,9 @@ TEST_DB = os.path.join(os.path.dirname(__file__), "test_guanlan.db")
 
 @pytest.fixture(autouse=True)
 def setup_db():
+    # Remove stale test database before creating schema
+    if os.path.exists(TEST_DB):
+        os.remove(TEST_DB)
     engine = create_async_engine(f"sqlite+aiosqlite:///{TEST_DB}", echo=False, poolclass=NullPool)
 
     async def init():
