@@ -213,19 +213,77 @@ const MarketPage: React.FC = () => {
   // ── Search ────────────────────────────────────────────────────
   const [searchResults, setSearchResults] = useState<{code: string; name: string}[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchText, setSearchText] = useState(code);
+  const [stockName, setStockName] = useState('');
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Sync search text + fetch name when code changes
+  useEffect(() => {
+    setSearchText(code);
+    if (!code) { setStockName(''); return; }
+    // Try local search results first (instant)
+    const match = searchResults.find(s => s.code === code);
+    if (match) {
+      setStockName(match.name);
+      setSearchText(code + ' - ' + match.name);
+      return;
+    }
+    // Otherwise fetch from backend
+    let cancelled = false;
+    api.get('/api/v1/stocks/search', { params: { q: code } })
+      .then(res => {
+        if (cancelled) return;
+        const items = res.data.items || [];
+        const found = items.find((s: {code: string; name: string}) => s.code === code);
+        const name = found ? found.name : '';
+        setStockName(name);
+        if (name) setSearchText(code + ' - ' + name);
+      })
+      .catch(() => { if (!cancelled) setStockName(''); });
+    return () => { cancelled = true; };
+  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSearch = (text: string) => {
+    setSearchText(text);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!text || text.length < 1) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/api/v1/stocks/search', { params: { q: text } });
-        setSearchResults(res.data.items || []);
+        const items = res.data.items || [];
+        setSearchResults(items);
+        // If current code matches a result, capture the name
+        const match = items.find((s: {code: string; name: string}) => s.code === code);
+        if (match) setStockName(match.name);
       } catch { setSearchResults([]); }
       setSearching(false);
     }, 300);
+  };
+
+  const handleSelect = (value: string) => {
+    const selectedCode = value.split(' - ')[0];
+    const selectedName = value.includes(' - ') ? value.split(' - ')[1] : '';
+    setSearchText(value);
+    setStockName(selectedName);
+    setCode(selectedCode);
+    setSearchResults([]);
+  };
+
+  const handleSearchSubmit = (value: string) => {
+    // Extract code from "code - name" or use raw input
+    const extractedCode = value.includes(' - ') ? value.split(' - ')[0].trim() : value.trim();
+    if (extractedCode) {
+      // Look up name from search results if available
+      const match = searchResults.find(s => s.code === extractedCode);
+      if (match) {
+        setStockName(match.name);
+        setSearchText(extractedCode + ' - ' + match.name);
+      } else {
+        setSearchText(extractedCode);
+      }
+      setCode(extractedCode);
+    }
   };
 
   return (
@@ -242,14 +300,16 @@ const MarketPage: React.FC = () => {
       <div className="mm-card" style={{ marginBottom: 'var(--mm-space-lg)', padding: 'var(--mm-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--mm-space-md)', marginBottom: 'var(--mm-space-md)' }}>
           <AutoComplete
+            value={searchText}
             options={searchResults.map(s => ({ value: s.code + ' - ' + s.name }))}
             onSearch={handleSearch}
-            onSelect={v => { setCode(v.split(' - ')[0]); setSearchResults([]); }}
+            onSelect={handleSelect}
+            onChange={setSearchText}
             style={{ width: 280 }}
             placeholder="输入股票代码或名称"
             notFoundContent={searching ? '搜索中...' : '未找到匹配股票'}
           >
-            <Input.Search enterButton="查询" onSearch={v => setCode(v)} />
+            <Input.Search enterButton="查询" onSearch={handleSearchSubmit} />
           </AutoComplete>
         </div>
 
@@ -285,6 +345,29 @@ const MarketPage: React.FC = () => {
 
       {/* ── Chart ──────────────────────────────────────────────── */}
       <div className="mm-card" style={{ padding: 'var(--mm-space-md)', position: 'relative', minHeight: 450 }}>
+        {/* Current stock indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--mm-space-sm)', marginBottom: 'var(--mm-space-sm)', padding: '0 4px' }}>
+          <span style={{
+            fontFamily: 'var(--mm-font-family)', fontSize: 'var(--mm-body-md-size)', fontWeight: 600,
+            color: 'var(--mm-ink)',
+          }}>
+            {code}
+          </span>
+          {stockName && (
+            <span style={{
+              fontFamily: 'var(--mm-font-family)', fontSize: 'var(--mm-body-sm-size)',
+              color: 'var(--mm-steel)',
+            }}>
+              {stockName}
+            </span>
+          )}
+          <span style={{
+            fontFamily: 'var(--mm-font-family)', fontSize: 'var(--mm-body-xs-size)', color: 'var(--mm-steel)',
+            padding: '1px 8px', borderRadius: 4, background: 'var(--mm-mist)', marginLeft: 'auto',
+          }}>
+            {PERIOD_LABELS[period]}
+          </span>
+        </div>
         {loading && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 10,

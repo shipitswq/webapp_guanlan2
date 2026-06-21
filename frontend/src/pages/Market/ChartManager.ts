@@ -52,6 +52,17 @@ export const COLORS: Record<string, string> = {
   REF_OVERSOLD: '#26a69a',
 };
 
+/** Convert date string to lightweight-charts time value.
+ *  - "2025-06-10" (daily) → keep as business day string
+ *  - "2025-06-10 15:00:00" (intraday) → UNIX timestamp (seconds)
+ */
+function toChartTime(dateStr: string): string | number {
+  if (dateStr.includes(' ')) {
+    return Math.floor(new Date(dateStr.replace(' ', 'T')).getTime() / 1000);
+  }
+  return dateStr;
+}
+
 export class ChartManager {
   chart: IChartApi;
   private mainOverlaySeries: ISeriesApi<'Line'>[] = [];
@@ -113,7 +124,7 @@ export class ChartManager {
 
     this.candleSeries.setData(
       dates.map((d, i) => ({
-        time: d,
+        time: toChartTime(d),
         open: open[i],
         high: high[i],
         low: low[i],
@@ -122,7 +133,7 @@ export class ChartManager {
     );
     this.volumeSeries.setData(
       dates.map((d, i) => ({
-        time: d,
+        time: toChartTime(d),
         value: volume[i],
         color: close[i] >= open[i] ? '#26a69a' : '#ef5350',
       }))
@@ -140,7 +151,7 @@ export class ChartManager {
       lineWidth: lineWidth as any,
       lineStyle,
     });
-    series.setData(dataPoints);
+    series.setData(dataPoints.map(p => ({ time: toChartTime(p.time), value: p.value })));
     this.mainOverlaySeries.push(series);
     return series;
   }
@@ -175,7 +186,7 @@ export class ChartManager {
       lineWidth: 1 as any,
       lineStyle,
     });
-    series.setData(data);
+    series.setData(data.map(p => ({ time: toChartTime(p.time), value: p.value })));
     this.subPaneSeries.push(series);
     return series;
   }
@@ -185,7 +196,7 @@ export class ChartManager {
     data: Array<{ time: string; value: number; color?: string }>,
   ): ISeriesApi<'Histogram'> {
     const series = pane.addSeries(HistogramSeries);
-    series.setData(data);
+    series.setData(data.map(p => ({ time: toChartTime(p.time), value: p.value, color: p.color })));
     this.subPaneSeries.push(series);
     return series;
   }

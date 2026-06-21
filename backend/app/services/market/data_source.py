@@ -93,12 +93,12 @@ def _load_stock_list() -> list[dict]:
     return results
 
 
-def _mootdx_category(period: str) -> int:
-    """Map period string to mootdx bar category code."""
+def _mootdx_frequency(period: str) -> int:
+    """Map period string to mootdx bars() frequency parameter."""
     return {
         "1m": 7, "5m": 0, "15m": 1, "30m": 2, "60m": 3,
-        "daily": 4, "weekly": 5, "monthly": 6,
-    }.get(period, 4)
+        "daily": 9, "weekly": 5, "monthly": 6,
+    }.get(period, 9)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -116,7 +116,7 @@ async def fetch_kline(
     Priority: DB cache → mootdx TCP (with DB write-back).
     Raises HTTPException on failure (no silent empty returns).
     """
-    category = _mootdx_category(period)
+    category = _mootdx_frequency(period)
 
     # 1. Try DB cache first (only for daily — minute/weekly/monthly not cached)
     if period == "daily":
@@ -130,7 +130,7 @@ async def fetch_kline(
             result = await session.execute(stmt)
             rows = result.scalars().all()
             if rows:
-                return pd.DataFrame({
+                df_cached = pd.DataFrame({
                     "date": [r.trade_date.isoformat() for r in rows],
                     "open": [r.open for r in rows],
                     "high": [r.high for r in rows],
@@ -138,11 +138,13 @@ async def fetch_kline(
                     "close": [r.close for r in rows],
                     "volume": [r.volume for r in rows],
                 })
+                df_cached = df_cached.drop_duplicates(subset=['date'], keep='last').reset_index(drop=True)
+                return df_cached
 
     # 2. Fetch from mootdx TCP
     client = _get_client()
     try:
-        df = client.bars(symbol=stock_code, category=category, offset=250)
+        df = client.bars(symbol=stock_code, frequency=category, offset=250)
     except Exception as e:
         raise HTTPException(
             status_code=502,
@@ -204,6 +206,7 @@ async def fetch_kline(
         out = out[out["date"] >= start_date]
     if end_date:
         out = out[out["date"] <= end_date]
+    out = out.drop_duplicates(subset=['date'], keep='last').reset_index(drop=True)
     return out
 
 
