@@ -3,12 +3,18 @@
 import asyncio
 import datetime
 from sqlalchemy import select
-from app.core.database import async_session_factory
+from app.core.database import async_session_factory, engine, Base
 from app.models.category import Category
 from app.models.article import Article
+from app.models import *  # noqa: F401, F403
 
 
 async def seed():
+    # Create tables if they don't exist
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print('Tables ensured.')
+
     async with async_session_factory() as db:
         # ── Categories ────────────────────────────────────────────
         existing = await db.execute(select(Category))
